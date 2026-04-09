@@ -1,0 +1,1245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>NextRead — Discover Your Next Story</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=DM+Sans:wght@300;400;500;600&family=Cormorant+Garamond:ital,wght@0,300;0,600;1,300;1,600&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --ink: #f5f0e8;
+    --parchment: #1a1816;
+    --cream: #12100e;
+    --amber: #e8a832;
+    --amber-light: #fcd34d;
+    --rust: #d97706;
+    --sage: #4ade80;
+    --muted: #a1a1aa;
+    --card-bg: #1e1b19;
+    --border: rgba(245,240,232,0.1);
+    --shadow-warm: 0 8px 40px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.2);
+    --shadow-deep: 0 20px 60px rgba(0,0,0,0.6), 0 4px 16px rgba(0,0,0,0.3);
+    --radius: 4px;
+    --transition: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--cream);
+    color: var(--ink);
+    min-height: 100vh;
+    overflow-x: hidden;
+    cursor: none;
+  }
+
+  /* Custom cursor */
+  .cursor {
+    position: fixed; top: 0; left: 0;
+    width: 12px; height: 12px;
+    background: var(--amber);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9999;
+    transform: translate(-50%, -50%);
+    transition: transform 0.1s, width 0.3s var(--transition), height 0.3s var(--transition), background 0.3s;
+    mix-blend-mode: screen;
+  }
+  .cursor-ring {
+    position: fixed; top: 0; left: 0;
+    width: 36px; height: 36px;
+    border: 1.5px solid var(--amber);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9998;
+    transform: translate(-50%, -50%);
+    transition: transform 0.18s ease, width 0.3s var(--transition), height 0.3s var(--transition);
+    opacity: 0.8;
+  }
+  .cursor.hover { width: 20px; height: 20px; }
+  .cursor-ring.hover { width: 52px; height: 52px; opacity: 0.6; }
+
+  /* Noise texture overlay */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.05'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 1000;
+    opacity: 0.6;
+  }
+
+  /* NAV */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0;
+    z-index: 500;
+    padding: 0 5vw;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 72px;
+    background: rgba(18,16,14,0.88);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+    animation: slideDown 0.8s var(--transition) both;
+  }
+  @keyframes slideDown { from { transform: translateY(-100%); opacity: 0; } to { transform: none; opacity: 1; } }
+
+  .nav-logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.6rem;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    text-decoration: none;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .nav-logo span { color: var(--amber); }
+  .nav-logo-icon {
+    width: 28px; height: 28px;
+    background: var(--ink);
+    border-radius: 2px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .nav-logo-icon svg { fill: var(--amber); width: 16px; height: 16px; }
+
+  .nav-links { display: flex; gap: 2.5rem; list-style: none; }
+  .nav-links a {
+    font-size: 0.82rem; font-weight: 500;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    text-decoration: none; color: var(--muted);
+    transition: color 0.25s;
+    position: relative;
+  }
+  .nav-links a::after {
+    content: ''; position: absolute; bottom: -2px; left: 0;
+    width: 0; height: 1px; background: var(--amber);
+    transition: width 0.3s var(--transition);
+  }
+  .nav-links a:hover { color: var(--ink); }
+  .nav-links a:hover::after { width: 100%; }
+
+  .nav-cta {
+    background: var(--ink); color: var(--parchment) !important;
+    padding: 9px 22px; border-radius: var(--radius);
+    font-size: 0.8rem !important; font-weight: 600 !important;
+    letter-spacing: 0.06em !important;
+    transition: background 0.25s, transform 0.2s !important;
+  }
+  .nav-cta::after { display: none !important; }
+  .nav-cta:hover { background: var(--amber) !important; transform: translateY(-1px); }
+
+  /* HERO */
+  .hero {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding-top: 72px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .hero-left {
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 6vw 4vw 6vw 8vw;
+    position: relative;
+    z-index: 2;
+  }
+
+  .hero-eyebrow {
+    display: flex; align-items: center; gap: 12px;
+    font-size: 0.72rem; font-weight: 600;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--amber);
+    margin-bottom: 1.5rem;
+    animation: fadeUp 0.8s 0.3s var(--transition) both;
+  }
+  .hero-eyebrow::before {
+    content: ''; display: block;
+    width: 32px; height: 1px; background: var(--amber);
+  }
+
+  .hero-title {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(3.2rem, 5.5vw, 5.8rem);
+    font-weight: 900;
+    line-height: 1.02;
+    letter-spacing: -0.025em;
+    color: var(--ink);
+    margin-bottom: 1.8rem;
+    animation: fadeUp 0.8s 0.45s var(--transition) both;
+  }
+  .hero-title em {
+    font-style: italic;
+    color: var(--amber);
+    font-weight: 400;
+  }
+
+  .hero-sub {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.2rem;
+    color: var(--muted);
+    line-height: 1.7;
+    max-width: 420px;
+    margin-bottom: 2.8rem;
+    animation: fadeUp 0.8s 0.6s var(--transition) both;
+  }
+
+  .hero-search-wrap {
+    position: relative;
+    max-width: 480px;
+    animation: fadeUp 0.8s 0.75s var(--transition) both;
+  }
+
+  .search-box {
+    width: 100%;
+    padding: 18px 60px 18px 24px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.95rem;
+    background: var(--card-bg);
+    border: 1.5px solid var(--border);
+    border-radius: 50px;
+    color: var(--ink);
+    outline: none;
+    box-shadow: var(--shadow-warm);
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+  .search-box::placeholder { color: var(--muted); opacity: 0.5; }
+  .search-box:focus {
+    border-color: var(--amber);
+    box-shadow: 0 0 0 4px rgba(200,132,26,0.12), var(--shadow-warm);
+  }
+
+  .search-btn {
+    position: absolute; right: 6px; top: 50%;
+    transform: translateY(-50%);
+    width: 44px; height: 44px;
+    background: var(--ink); border: none;
+    border-radius: 50%; cursor: none;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.25s, transform 0.2s;
+  }
+  .search-btn:hover { background: var(--amber); transform: translateY(-50%) scale(1.05); }
+  .search-btn svg { fill: #fff; width: 16px; height: 16px; }
+
+  .hero-stats {
+    display: flex; gap: 2.5rem;
+    margin-top: 2.5rem;
+    animation: fadeUp 0.8s 0.9s var(--transition) both;
+  }
+  .stat-item { display: flex; flex-direction: column; gap: 2px; }
+  .stat-num {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.8rem; font-weight: 700;
+    color: var(--ink); letter-spacing: -0.02em;
+  }
+  .stat-label {
+    font-size: 0.72rem; font-weight: 500;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* Hero right - floating books */
+  .hero-right {
+    position: relative; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .hero-bg-circle {
+    position: absolute;
+    width: 520px; height: 520px;
+    background: radial-gradient(circle, rgba(200,132,26,0.12) 0%, transparent 70%);
+    border-radius: 50%;
+    animation: pulse 6s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+
+  .floating-books {
+    position: relative; width: 400px; height: 500px;
+  }
+
+  .float-book {
+    position: absolute;
+    border-radius: 4px 8px 8px 4px;
+    box-shadow: var(--shadow-deep);
+    animation: float var(--dur, 6s) var(--delay, 0s) ease-in-out infinite;
+    overflow: hidden;
+    cursor: none;
+    transition: transform 0.3s var(--transition);
+  }
+  .float-book:hover { z-index: 10; transform: translateY(calc(var(--fy, 0px) - 8px)) rotate(0deg) scale(1.06) !important; }
+  .float-book img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(var(--fy, 0px)) rotate(var(--rot, 0deg)); }
+    50% { transform: translateY(calc(var(--fy, 0px) - 18px)) rotate(var(--rot2, 0deg)); }
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(28px); }
+    to { opacity: 1; transform: none; }
+  }
+
+  /* GENRES FILTER */
+  .section { padding: 6rem 8vw; }
+  .section-header {
+    display: flex; align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 2.5rem;
+    gap: 1rem;
+  }
+  .section-eyebrow {
+    font-size: 0.7rem; font-weight: 600;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--amber); margin-bottom: 0.6rem;
+  }
+  .section-title {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(1.8rem, 3vw, 2.8rem);
+    font-weight: 700; line-height: 1.15;
+    letter-spacing: -0.02em;
+  }
+  .section-link {
+    font-size: 0.8rem; font-weight: 600;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--amber); text-decoration: none;
+    display: flex; align-items: center; gap: 6px;
+    white-space: nowrap; padding-bottom: 4px;
+    border-bottom: 1px solid var(--amber);
+    transition: gap 0.25s;
+  }
+  .section-link:hover { gap: 12px; }
+
+  /* Genre chips */
+  .genre-chips {
+    display: flex; flex-wrap: wrap; gap: 10px;
+    margin-bottom: 3rem;
+  }
+  .chip {
+    padding: 8px 20px;
+    border: 1.5px solid var(--border);
+    border-radius: 50px;
+    font-size: 0.82rem; font-weight: 500;
+    cursor: none; background: transparent;
+    color: var(--muted);
+    transition: all 0.25s var(--transition);
+    letter-spacing: 0.02em;
+  }
+  .chip:hover, .chip.active {
+    background: var(--ink); color: var(--parchment);
+    border-color: var(--ink); transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(14,12,10,0.15);
+  }
+  .chip.active { background: var(--amber); border-color: var(--amber); }
+
+  /* BOOK GRID */
+  .books-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 2rem;
+  }
+
+  .book-card {
+    position: relative; cursor: none;
+    animation: fadeUp 0.6s var(--transition) both;
+  }
+  .book-card:hover .book-cover { transform: translateY(-10px) scale(1.02); box-shadow: var(--shadow-deep); }
+  .book-card:hover .book-overlay { opacity: 1; }
+  .book-card:hover .book-info { transform: translateY(-4px); }
+
+  .book-cover-wrap {
+    position: relative; margin-bottom: 1rem;
+    border-radius: 4px 8px 8px 4px;
+    overflow: hidden;
+  }
+  .book-cover {
+    width: 100%; aspect-ratio: 2/3;
+    object-fit: cover; display: block;
+    border-radius: 4px 8px 8px 4px;
+    transition: transform 0.4s var(--transition), box-shadow 0.4s var(--transition);
+    box-shadow: 4px 6px 24px rgba(0,0,0,0.4), 1px 2px 6px rgba(0,0,0,0.2);
+  }
+
+  .book-spine {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    width: 6px;
+    background: linear-gradient(to right, rgba(0,0,0,0.4), rgba(0,0,0,0.1), transparent);
+    border-radius: 4px 0 0 4px;
+  }
+
+  .book-overlay {
+    position: absolute; inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 60%);
+    opacity: 0; transition: opacity 0.35s;
+    border-radius: 4px 8px 8px 4px;
+    display: flex; align-items: flex-end; padding: 16px;
+  }
+  .book-overlay-btn {
+    width: 100%;
+    padding: 10px;
+    background: var(--amber); color: #fff;
+    border: none; border-radius: 4px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.78rem; font-weight: 600;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    cursor: none; transition: background 0.25s, transform 0.2s;
+  }
+  .book-overlay-btn:hover { background: var(--amber-light); transform: translateY(-2px); }
+
+  .book-info { transition: transform 0.35s var(--transition); }
+  .book-rating {
+    display: flex; align-items: center; gap: 5px;
+    margin-bottom: 5px;
+  }
+  .stars { color: var(--amber); font-size: 0.72rem; letter-spacing: 1px; }
+  .rating-num { font-size: 0.72rem; color: var(--muted); font-weight: 500; }
+
+  .book-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 0.95rem; font-weight: 700;
+    line-height: 1.3; margin-bottom: 3px;
+    color: var(--ink);
+  }
+  .book-author {
+    font-size: 0.78rem; color: var(--muted);
+    font-style: italic;
+  }
+  .book-genre-tag {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 2px 10px;
+    background: rgba(200,132,26,0.1);
+    border-radius: 50px;
+    font-size: 0.68rem; font-weight: 600;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--amber);
+  }
+
+  /* FEATURED BOOK BANNER */
+  .featured-banner {
+    margin: 0 8vw 6rem;
+    background: var(--parchment);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    min-height: 320px;
+    position: relative;
+  }
+  .featured-banner::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 80% 50%, rgba(232,168,50,0.15) 0%, transparent 60%);
+  }
+  .featured-cover {
+    position: relative; overflow: hidden;
+  }
+  .featured-cover img {
+    width: 100%; height: 100%; object-fit: cover;
+    filter: brightness(0.85);
+    transition: transform 0.5s var(--transition);
+  }
+  .featured-banner:hover .featured-cover img { transform: scale(1.04); }
+  .featured-content {
+    padding: 3rem 3.5rem;
+    display: flex; flex-direction: column; justify-content: center;
+    position: relative; z-index: 1;
+  }
+  .featured-tag {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 0.7rem; font-weight: 700;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--amber); margin-bottom: 1.2rem;
+  }
+  .featured-tag::before {
+    content: ''; width: 6px; height: 6px;
+    background: var(--amber); border-radius: 50%;
+    animation: blink 1.5s ease-in-out infinite;
+  }
+  @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  .featured-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 2.2rem; font-weight: 900;
+    color: var(--parchment); line-height: 1.15;
+    margin-bottom: 0.6rem; letter-spacing: -0.02em;
+  }
+  .featured-author {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.05rem; color: rgba(245,240,232,0.6);
+    font-style: italic; margin-bottom: 1.2rem;
+  }
+  .featured-desc {
+    font-size: 0.9rem; color: rgba(245,240,232,0.7);
+    line-height: 1.7; max-width: 480px; margin-bottom: 2rem;
+  }
+  .featured-actions { display: flex; gap: 1rem; flex-wrap: wrap; }
+  .btn-primary {
+    padding: 12px 28px;
+    background: var(--amber); color: #fff;
+    border: none; border-radius: 4px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem; font-weight: 600;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    cursor: none; text-decoration: none;
+    transition: background 0.25s, transform 0.2s, box-shadow 0.2s;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn-primary:hover { background: var(--amber-light); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(200,132,26,0.35); }
+  .btn-ghost {
+    padding: 12px 28px;
+    background: transparent;
+    color: rgba(245,240,232,0.8);
+    border: 1.5px solid rgba(245,240,232,0.25);
+    border-radius: 4px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem; font-weight: 600;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    cursor: none; text-decoration: none;
+    transition: all 0.25s;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn-ghost:hover { border-color: var(--amber); color: var(--amber); transform: translateY(-2px); }
+
+  /* MARQUEE */
+  .marquee-wrap {
+    padding: 1.5rem 0;
+    background: var(--ink);
+    overflow: hidden;
+    display: flex;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    margin-bottom: 6rem;
+  }
+  .marquee {
+    display: flex; gap: 0;
+    animation: marquee 25s linear infinite;
+    white-space: nowrap;
+  }
+  .marquee-item {
+    display: flex; align-items: center; gap: 1.5rem;
+    padding: 0 2.5rem;
+    font-family: 'Playfair Display', serif;
+    font-size: 1rem; font-weight: 400;
+    font-style: italic;
+    color: rgba(245,240,232,0.45);
+    letter-spacing: 0.02em;
+  }
+  .marquee-item span { color: var(--amber); font-style: normal; font-size: 1.4rem; }
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+
+  /* QUOTE SECTION */
+  .quote-section {
+    padding: 6rem 8vw;
+    text-align: center;
+    background: var(--parchment);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 6rem;
+  }
+  .quote-text {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(1.5rem, 3.5vw, 2.8rem);
+    font-style: italic;
+    font-weight: 300;
+    line-height: 1.5;
+    color: var(--ink);
+    max-width: 800px;
+    margin: 0 auto 1.5rem;
+    position: relative;
+  }
+  .quote-text::before {
+    content: '\201C';
+    font-size: 8rem; line-height: 0;
+    color: rgba(232,168,50,0.15);
+    position: absolute; top: 2rem; left: -2rem;
+    font-family: 'Playfair Display', serif;
+  }
+  .quote-author {
+    font-size: 0.8rem; font-weight: 600;
+    letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--amber);
+  }
+
+  /* NO RESULTS */
+  .no-results {
+    text-align: center; padding: 4rem 2rem;
+    display: none; grid-column: 1/-1;
+  }
+  .no-results.visible { display: block; }
+  .no-results-icon { font-size: 3rem; margin-bottom: 1rem; opacity: 0.3; }
+  .no-results h3 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.4rem; margin-bottom: 0.5rem;
+  }
+  .no-results p { color: var(--muted); font-size: 0.9rem; }
+
+  /* MODAL */
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 800;
+    background: rgba(0,0,0,0.8);
+    backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center;
+    padding: 2rem;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.35s;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+  .modal {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    max-width: 660px; width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    box-shadow: var(--shadow-deep);
+    transform: translateY(30px) scale(0.97);
+    transition: transform 0.35s var(--transition);
+  }
+  .modal-overlay.open .modal { transform: none; }
+  .modal-cover { overflow: hidden; border-radius: 12px 0 0 12px; }
+  .modal-cover img { width: 100%; height: 100%; object-fit: cover; }
+  .modal-body { padding: 2.5rem; position: relative; }
+  .modal-close {
+    position: absolute; top: 1.2rem; right: 1.2rem;
+    width: 32px; height: 32px;
+    background: var(--border); border: none; border-radius: 50%;
+    cursor: none; font-size: 1.1rem; color: var(--ink);
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s, transform 0.2s;
+  }
+  .modal-close:hover { background: var(--amber); color: #fff; transform: rotate(90deg); }
+  .modal-genre { color: var(--amber); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 0.8rem; }
+  .modal-title { font-family: 'Playfair Display', serif; font-size: 1.7rem; font-weight: 900; line-height: 1.2; margin-bottom: 0.4rem; }
+  .modal-author { font-style: italic; color: var(--muted); margin-bottom: 1rem; font-family: 'Cormorant Garamond', serif; font-size: 1.05rem; }
+  .modal-rating { display: flex; align-items: center; gap: 8px; margin-bottom: 1.2rem; }
+  .modal-stars { color: var(--amber); }
+  .modal-rnum { font-size: 0.85rem; color: var(--muted); }
+  .modal-desc { font-size: 0.9rem; line-height: 1.75; color: var(--muted); margin-bottom: 1.5rem; }
+  .modal-meta { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.8rem; }
+  .modal-meta-item { display: flex; flex-direction: column; gap: 2px; }
+  .modal-meta-label { font-size: 0.65rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); opacity: 0.6; }
+  .modal-meta-val { font-size: 0.88rem; font-weight: 600; color: var(--ink); }
+  .modal-actions { display: flex; gap: 0.8rem; flex-wrap: wrap; }
+  .btn-dark {
+    padding: 12px 22px;
+    background: var(--ink); color: var(--cream);
+    border: none; border-radius: 4px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.8rem; font-weight: 600;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    cursor: none; transition: background 0.25s, transform 0.2s;
+  }
+  .btn-dark:hover { background: var(--amber); color: #fff; transform: translateY(-1px); }
+  .btn-outline-dark {
+    padding: 12px 22px;
+    background: transparent; color: var(--ink);
+    border: 1.5px solid var(--border); border-radius: 4px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.8rem; font-weight: 600;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    cursor: none; transition: all 0.25s;
+  }
+  .btn-outline-dark:hover { border-color: var(--amber); color: var(--amber); transform: translateY(-1px); }
+
+  /* FOOTER */
+  footer {
+    background: var(--ink); padding: 4rem 8vw 2.5rem;
+    margin-top: 4rem;
+  }
+  .footer-top {
+    display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr;
+    gap: 3rem; margin-bottom: 3rem;
+    padding-bottom: 3rem;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .footer-brand { }
+  .footer-logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.5rem; font-weight: 900;
+    color: var(--parchment); margin-bottom: 0.8rem;
+  }
+  .footer-logo span { color: var(--amber); }
+  .footer-desc { font-size: 0.85rem; color: rgba(245,240,232,0.45); line-height: 1.7; max-width: 260px; }
+  .footer-col h4 {
+    font-size: 0.7rem; font-weight: 700;
+    letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--amber); margin-bottom: 1.2rem;
+  }
+  .footer-col ul { list-style: none; display: flex; flex-direction: column; gap: 0.6rem; }
+  .footer-col a { font-size: 0.85rem; color: rgba(245,240,232,0.5); text-decoration: none; transition: color 0.25s; }
+  .footer-col a:hover { color: var(--parchment); }
+  .footer-bottom {
+    display: flex; justify-content: space-between; align-items: center;
+    flex-wrap: wrap; gap: 1rem;
+  }
+  .footer-copy { font-size: 0.78rem; color: rgba(245,240,232,0.25); }
+  .footer-socials { display: flex; gap: 0.8rem; }
+  .social-btn {
+    width: 36px; height: 36px;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 4px; cursor: none;
+    display: flex; align-items: center; justify-content: center;
+    transition: border-color 0.25s, background 0.25s;
+  }
+  .social-btn:hover { border-color: var(--amber); background: rgba(200,132,26,0.1); }
+  .social-btn svg { fill: rgba(245,240,232,0.5); width: 14px; height: 14px; transition: fill 0.25s; }
+  .social-btn:hover svg { fill: var(--amber); }
+
+  /* Progress bar */
+  .read-progress {
+    position: fixed; top: 72px; left: 0;
+    height: 2px; background: var(--amber);
+    z-index: 499; transition: width 0.1s;
+    box-shadow: 0 0 8px rgba(200,132,26,0.6);
+  }
+
+  /* Scroll reveal */
+  .reveal {
+    opacity: 0; transform: translateY(32px);
+    transition: opacity 0.7s var(--transition), transform 0.7s var(--transition);
+  }
+  .reveal.revealed { opacity: 1; transform: none; }
+
+  /* Book shelf line effect */
+  .book-cover-wrap::after {
+    content: '';
+    position: absolute; bottom: -4px; left: 4px; right: -2px;
+    height: 8px;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.25), rgba(0,0,0,0.08));
+    border-radius: 0 0 6px 6px;
+    filter: blur(3px);
+  }
+
+  /* Wishlist heart */
+  .wishlist-btn {
+    position: absolute; top: 10px; right: 10px;
+    width: 30px; height: 30px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    cursor: none; font-size: 0.85rem;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transform: scale(0.8);
+    transition: opacity 0.25s, transform 0.25s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    color: var(--muted);
+  }
+  .book-card:hover .wishlist-btn { opacity: 1; transform: scale(1); }
+  .wishlist-btn.liked { color: #e34040; opacity: 1; transform: scale(1); }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: var(--ink); color: var(--parchment);
+    padding: 14px 24px; border-radius: 50px;
+    font-size: 0.85rem; font-weight: 500;
+    z-index: 900; box-shadow: var(--shadow-deep);
+    transition: transform 0.4s var(--transition);
+    display: flex; align-items: center; gap: 10px;
+    white-space: nowrap;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast-dot { width: 8px; height: 8px; background: var(--amber); border-radius: 50%; flex-shrink: 0; }
+
+  @media (max-width: 900px) {
+    .hero { grid-template-columns: 1fr; }
+    .hero-right { display: none; }
+    .hero-left { padding: 4rem 6vw 4rem; }
+    .featured-banner { grid-template-columns: 1fr; }
+    .featured-cover { height: 220px; }
+    .footer-top { grid-template-columns: 1fr 1fr; }
+    .modal { grid-template-columns: 1fr; }
+    .modal-cover { height: 240px; border-radius: 12px 12px 0 0; }
+  }
+  @media (max-width: 600px) {
+    .nav-links { display: none; }
+    .footer-top { grid-template-columns: 1fr; }
+    .hero-stats { gap: 1.5rem; flex-wrap: wrap; }
+    .books-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  }
+</style>
+</head>
+<body>
+
+<!-- Cursor -->
+<div class="cursor" id="cursor"></div>
+<div class="cursor-ring" id="cursorRing"></div>
+
+<!-- Read Progress -->
+<div class="read-progress" id="readProgress"></div>
+
+<!-- Toast -->
+<div class="toast" id="toast"><span class="toast-dot"></span><span id="toastMsg"></span></div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" id="modal">
+    <div class="modal-cover"><img id="modalImg" src="" alt=""/></div>
+    <div class="modal-body">
+      <button class="modal-close" id="modalClose">✕</button>
+      <div class="modal-genre" id="modalGenre"></div>
+      <h2 class="modal-title" id="modalTitle"></h2>
+      <div class="modal-author" id="modalAuthor"></div>
+      <div class="modal-rating">
+        <span class="modal-stars" id="modalStars"></span>
+        <span class="modal-rnum" id="modalRating"></span>
+      </div>
+      <p class="modal-desc" id="modalDesc"></p>
+      <div class="modal-meta" id="modalMeta"></div>
+      <div class="modal-actions">
+        <button class="btn-dark">Read Now</button>
+        <button class="btn-outline-dark" id="modalWishlist">Add to Wishlist</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- NAV -->
+<nav>
+  <a href="#" class="nav-logo">
+    <div class="nav-logo-icon">
+      <svg viewBox="0 0 24 24"><path d="M21 3H3v18h18V3zm-2 16H5V5h14v14zM7 7h10v2H7V7zm0 4h10v2H7v-2zm0 4h7v2H7v-2z"/></svg>
+    </div>
+    Next<span>Read</span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="#discover">Discover</a></li>
+    <li><a href="#featured">Featured</a></li>
+    <li><a href="#genres">Genres</a></li>
+    <li><a href="#" class="nav-cta">Start Reading</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-left">
+    <div class="hero-eyebrow">Curated Book Discovery</div>
+    <!-- <h1 class="hero-title">Find Your Next<br><em>Great Read</em></h1> -->
+    <h1 class="hero-title">So...<br><em>Which Book To Read Next?</em></h1>
+    <p class="hero-sub">A beautifully curated collection of literature across every genre. Discover stories that move you, challenge you, and stay with you forever.</p>
+    <div class="hero-search-wrap">
+      <input class="search-box" id="heroSearch" type="text" placeholder="Search by title, author, or genre…"/>
+      <button class="search-btn" onclick="triggerSearch()">
+        <svg viewBox="0 0 24 24"><path d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" stroke="#fff" stroke-width="2.2" stroke-linecap="round" fill="none"/></svg>
+      </button>
+    </div>
+    <div class="hero-stats">
+      <div class="stat-item"><div class="stat-num" data-count="2400">0</div><div class="stat-label">Books</div></div>
+      <div class="stat-item"><div class="stat-num" data-count="48">0</div><div class="stat-label">Genres</div></div>
+      <div class="stat-item"><div class="stat-num" data-count="180">0</div><div class="stat-label">Authors</div></div>
+    </div>
+  </div>
+  <div class="hero-right">
+    <div class="hero-bg-circle"></div>
+    <div class="floating-books" id="floatingBooks"></div>
+  </div>
+</section>
+
+<!-- MARQUEE -->
+<div class="marquee-wrap">
+  <div class="marquee" id="marquee"></div>
+</div>
+
+<!-- FEATURED -->
+<div id="featured" class="featured-banner reveal">
+  <div class="featured-cover">
+    <img src="https://covers.openlibrary.org/b/id/8739161-L.jpg" alt="The Great Gatsby" loading="lazy"/>
+  </div>
+  <div class="featured-content">
+    <div class="featured-tag">Book of the Week</div>
+    <h2 class="featured-title">The Great Gatsby</h2>
+    <div class="featured-author">F. Scott Fitzgerald</div>
+    <p class="featured-desc">Set in the Jazz Age on Long Island, this masterpiece of American literature captures the hollow pursuit of the American dream through the eyes of narrator Nick Carraway.</p>
+    <div class="featured-actions">
+      <a href="#" class="btn-primary">Read Now →</a>
+      <a href="#" class="btn-ghost">Add to List</a>
+    </div>
+  </div>
+</div>
+
+<!-- DISCOVER -->
+<section class="section" id="discover">
+  <div class="section-header reveal">
+    <div>
+      <div class="section-eyebrow">Explore the Collection</div>
+      <h2 class="section-title">Discover Books</h2>
+    </div>
+    <a href="#" class="section-link">View All →</a>
+  </div>
+
+  <!-- Genre Filter -->
+  <div class="genre-chips" id="genreChips"></div>
+
+  <!-- Search Bar (inline) -->
+  <div style="position:relative;max-width:380px;margin-bottom:2.5rem;" class="reveal">
+    <input class="search-box" id="inlineSearch" type="text" placeholder="Search books…" style="padding:14px 50px 14px 20px;border-radius:6px;font-size:0.9rem;"/>
+    <span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:1rem;">⌕</span>
+  </div>
+
+  <div class="books-grid" id="booksGrid">
+    <div class="no-results" id="noResults">
+      <div class="no-results-icon">📚</div>
+      <h3>No books found</h3>
+      <p>Try a different search term or genre filter</p>
+    </div>
+  </div>
+</section>
+
+<!-- QUOTE -->
+<div class="quote-section reveal">
+  <blockquote class="quote-text" id="quoteText">"A reader lives a thousand lives before he dies. The man who never reads lives only one."</blockquote>
+  <div class="quote-author" id="quoteAuthor">— George R.R. Martin</div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-top">
+    <div class="footer-brand">
+      <div class="footer-logo">Next<span>Read</span></div>
+      <p class="footer-desc">Your curated gateway to extraordinary literature. Every book, a new world. Every page, a new life.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Discover</h4>
+      <ul>
+        <li><a href="#">New Releases</a></li>
+        <li><a href="#">Bestsellers</a></li>
+        <li><a href="#">Staff Picks</a></li>
+        <li><a href="#">Award Winners</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Genres</h4>
+      <ul>
+        <li><a href="#">Fiction</a></li>
+        <li><a href="#">Non-Fiction</a></li>
+        <li><a href="#">Mystery</a></li>
+        <li><a href="#">Sci-Fi</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Company</h4>
+      <ul>
+        <li><a href="#">About Us</a></li>
+        <li><a href="#">Blog</a></li>
+        <li><a href="#">Contact</a></li>
+        <li><a href="#">Privacy</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <div class="footer-copy">© 2025 NextRead. Crafted with love for readers everywhere.</div>
+    <div class="footer-socials">
+      <div class="social-btn"><svg viewBox="0 0 24 24"><path d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z"/></svg></div>
+      <div class="social-btn"><svg viewBox="0 0 24 24"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg></div>
+      <div class="social-btn"><svg viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg></div>
+    </div>
+  </div>
+</footer>
+
+<script>
+// ─── DATA ───────────────────────────────────────────────────────────────────
+const books = [
+  { id:1, title:"1984", author:"George Orwell", genre:"Dystopia", rating:4.7, reviews:"2.4M", pages:328, year:1949, cover:"https://covers.openlibrary.org/b/id/8575708-L.jpg", desc:"A chilling portrait of a totalitarian society where Big Brother watches every move, and truth itself is rewritten daily by the Party's iron grip." },
+  { id:2, title:"To Kill a Mockingbird", author:"Harper Lee", genre:"Classic", rating:4.8, reviews:"4.1M", pages:281, year:1960, cover:"https://covers.openlibrary.org/b/id/8228691-L.jpg", desc:"Through the eyes of young Scout Finch, Harper Lee explores racial injustice and moral growth in the American Deep South of the 1930s." },
+  { id:3, title:"The Alchemist", author:"Paulo Coelho", genre:"Philosophy", rating:4.6, reviews:"3.8M", pages:208, year:1988, cover:"https://covers.openlibrary.org/b/id/8747365-L.jpg", desc:"A shepherd boy's quest for treasure across the Egyptian desert, where the true journey is one of self-discovery and personal legend." },
+  { id:4, title:"Sapiens", author:"Yuval Noah Harari", genre:"Non-Fiction", rating:4.5, reviews:"1.9M", pages:443, year:2011, cover:"https://covers.openlibrary.org/b/id/8739161-L.jpg", desc:"A bold journey through 100,000 years of human history, exploring how Homo sapiens came to dominate planet Earth through biology, culture, and sheer imagination." },
+  { id:5, title:"Brave New World", author:"Aldous Huxley", genre:"Dystopia", rating:4.4, reviews:"1.2M", pages:311, year:1932, cover:"https://covers.openlibrary.org/b/id/8571660-L.jpg", desc:"In a scientifically perfected future society, citizens are engineered and conditioned for happiness — but at what cost to humanity?" },
+  { id:6, title:"The Hobbit", author:"J.R.R. Tolkien", genre:"Fantasy", rating:4.8, reviews:"5.2M", pages:310, year:1937, cover:"https://covers.openlibrary.org/b/id/8406786-L.jpg", desc:"Bilbo Baggins, a comfort-loving hobbit, is swept into an epic quest through Middle-earth alongside thirteen dwarves and the wizard Gandalf." },
+  { id:7, title:"Dune", author:"Frank Herbert", genre:"Sci-Fi", rating:4.7, reviews:"2.1M", pages:688, year:1965, cover:"https://covers.openlibrary.org/b/id/7964655-L.jpg", desc:"On the desert planet Arrakis, Paul Atreides confronts power, religion, and destiny in this landmark of science fiction literature." },
+  { id:8, title:"Crime and Punishment", author:"Fyodor Dostoevsky", genre:"Classic", rating:4.6, reviews:"1.4M", pages:551, year:1866, cover:"https://covers.openlibrary.org/b/id/8292136-L.jpg", desc:"A young student commits a terrible crime believing himself above morality — and then spirals into psychological torment and redemption." },
+  { id:9, title:"The Catcher in the Rye", author:"J.D. Salinger", genre:"Coming-of-Age", rating:4.2, reviews:"1.8M", pages:277, year:1951, cover:"https://covers.openlibrary.org/b/id/8231432-L.jpg", desc:"Holden Caulfield's iconic rambling account of alienation, identity, and loss of innocence in post-war New York City." },
+  { id:10, title:"Atomic Habits", author:"James Clear", genre:"Self-Help", rating:4.8, reviews:"1.6M", pages:320, year:2018, cover:"https://covers.openlibrary.org/b/id/10521540-L.jpg", desc:"A revolutionary framework for building good habits and breaking bad ones — tiny changes that yield remarkable results over time." },
+  { id:11, title:"The Name of the Wind", author:"Patrick Rothfuss", genre:"Fantasy", rating:4.6, reviews:"987K", pages:662, year:2007, cover:"https://covers.openlibrary.org/b/id/8406785-L.jpg", desc:"The legendary Kvothe recounts his extraordinary life from humble beginnings to feared wizard — an unmatched feat of storytelling." },
+  { id:12, title:"Thinking, Fast and Slow", author:"Daniel Kahneman", genre:"Non-Fiction", rating:4.5, reviews:"1.1M", pages:499, year:2011, cover:"https://covers.openlibrary.org/b/id/8739162-L.jpg", desc:"Nobel laureate Kahneman reveals the two systems that drive how we think — and the fascinating, often irrational ways we make decisions." },
+  { id:13, title:"The Road", author:"Cormac McCarthy", genre:"Post-Apocalyptic", rating:4.4, reviews:"876K", pages:287, year:2006, cover:"https://covers.openlibrary.org/b/id/8571650-L.jpg", desc:"A father and son traverse a devastated America in this spare, devastating, Pulitzer Prize-winning meditation on survival and love." },
+  { id:14, title:"Norwegian Wood", author:"Haruki Murakami", genre:"Literary Fiction", rating:4.5, reviews:"1.2M", pages:296, year:1987, cover:"https://covers.openlibrary.org/b/id/8232161-L.jpg", desc:"A bittersweet story of memory, love, and loss set against 1960s Tokyo — Murakami's most intimate and widely read novel." },
+  { id:15, title:"Project Hail Mary", author:"Andy Weir", genre:"Sci-Fi", rating:4.9, reviews:"743K", pages:476, year:2021, cover:"https://covers.openlibrary.org/b/id/12720453-L.jpg", desc:"Ryland Grace wakes alone on a spaceship with no memory — and the fate of Earth in his hands. A triumphant sci-fi thriller." },
+  { id:16, title:"The Midnight Library", author:"Matt Haig", genre:"Literary Fiction", rating:4.4, reviews:"654K", pages:304, year:2020, cover:"https://covers.openlibrary.org/b/id/12145576-L.jpg", desc:"Between life and death, Nora Seed discovers a library where every book offers a chance to live a different life she could have had." },
+];
+
+const genres = ["All", "Fiction", "Dystopia", "Classic", "Fantasy", "Sci-Fi", "Non-Fiction", "Self-Help", "Philosophy", "Literary Fiction", "Coming-of-Age", "Post-Apocalyptic"];
+
+const quotes = [
+  { text: "A reader lives a thousand lives before he dies. The man who never reads lives only one.", author: "George R.R. Martin" },
+  { text: "Not all those who wander are lost.", author: "J.R.R. Tolkien" },
+  { text: "So many books, so little time.", author: "Frank Zappa" },
+  { text: "The more that you read, the more things you will know.", author: "Dr. Seuss" },
+  { text: "There is no friend as loyal as a book.", author: "Ernest Hemingway" },
+];
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let currentGenre = "All";
+let searchQuery = "";
+let wishlist = new Set();
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  initCursor();
+  initProgress();
+  initFloatingBooks();
+  initMarquee();
+  initGenreChips();
+  renderBooks();
+  initSearch();
+  initScrollReveal();
+  countUp();
+  randomQuote();
+});
+
+// ─── CURSOR ──────────────────────────────────────────────────────────────────
+function initCursor() {
+  const cur = document.getElementById('cursor');
+  const ring = document.getElementById('cursorRing');
+  let mx = 0, my = 0, rx = 0, ry = 0;
+  document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+  (function animate() {
+    rx += (mx - rx) * 0.2; ry += (my - ry) * 0.2;
+    cur.style.left = mx + 'px'; cur.style.top = my + 'px';
+    ring.style.left = rx + 'px'; ring.style.top = ry + 'px';
+    requestAnimationFrame(animate);
+  })();
+  document.querySelectorAll('a,button,.chip,.book-card,.social-btn,.wishlist-btn').forEach(el => {
+    el.addEventListener('mouseenter', () => { cur.classList.add('hover'); ring.classList.add('hover'); });
+    el.addEventListener('mouseleave', () => { cur.classList.remove('hover'); ring.classList.remove('hover'); });
+  });
+}
+
+// ─── PROGRESS BAR ────────────────────────────────────────────────────────────
+function initProgress() {
+  const bar = document.getElementById('readProgress');
+  window.addEventListener('scroll', () => {
+    const pct = window.scrollY / (document.body.scrollHeight - window.innerHeight) * 100;
+    bar.style.width = pct + '%';
+  });
+}
+
+// ─── FLOATING BOOKS ──────────────────────────────────────────────────────────
+function initFloatingBooks() {
+  const wrap = document.getElementById('floatingBooks');
+  const configs = [
+    { book: books[0], style: "width:120px;height:180px;left:60px;top:40px;--dur:7s;--delay:0s;--rot:-5deg;--rot2:-3deg;--fy:-10px;" },
+    { book: books[6], style: "width:100px;height:150px;left:220px;top:20px;--dur:8s;--delay:1s;--rot:4deg;--rot2:2deg;--fy:-8px;" },
+    { book: books[2], style: "width:130px;height:196px;left:10px;top:220px;--dur:6.5s;--delay:0.5s;--rot:2deg;--rot2:4deg;--fy:-12px;" },
+    { book: books[5], style: "width:110px;height:165px;left:200px;top:200px;--dur:9s;--delay:1.5s;--rot:-3deg;--rot2:-6deg;--fy:-14px;" },
+    { book: books[14], style: "width:95px;height:143px;left:130px;top:310px;--dur:7.5s;--delay:2s;--rot:6deg;--rot2:3deg;--fy:-9px;" },
+  ];
+  configs.forEach(cfg => {
+    const el = document.createElement('div');
+    el.className = 'float-book';
+    el.style.cssText = cfg.style;
+    el.innerHTML = `<img src="${cfg.book.cover}" alt="${cfg.book.title}" loading="lazy"/>`;
+    el.addEventListener('click', () => openModal(cfg.book));
+    wrap.appendChild(el);
+  });
+}
+
+// ─── MARQUEE ─────────────────────────────────────────────────────────────────
+function initMarquee() {
+  const wrap = document.getElementById('marquee');
+  const items = books.map(b => `<div class="marquee-item">${b.title} <span>·</span></div>`).join('');
+  wrap.innerHTML = items + items; // duplicate for seamless loop
+}
+
+// ─── GENRE CHIPS ─────────────────────────────────────────────────────────────
+function initGenreChips() {
+  const wrap = document.getElementById('genreChips');
+  genres.forEach(g => {
+    const btn = document.createElement('button');
+    btn.className = 'chip' + (g === 'All' ? ' active' : '');
+    btn.textContent = g;
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      currentGenre = g;
+      renderBooks();
+    });
+    wrap.appendChild(btn);
+  });
+}
+
+// ─── RENDER BOOKS ────────────────────────────────────────────────────────────
+function renderBooks() {
+  const grid = document.getElementById('booksGrid');
+  const noRes = document.getElementById('noResults');
+  const q = searchQuery.toLowerCase();
+
+  let filtered = books.filter(b => {
+    const matchGenre = currentGenre === 'All' || b.genre === currentGenre ||
+      (currentGenre === 'Fiction' && ['Dystopia','Classic','Coming-of-Age','Literary Fiction','Fantasy','Post-Apocalyptic'].includes(b.genre));
+    const matchSearch = !q || b.title.toLowerCase().includes(q) || b.author.toLowerCase().includes(q) || b.genre.toLowerCase().includes(q);
+    return matchGenre && matchSearch;
+  });
+
+  grid.innerHTML = '';
+  grid.appendChild(noRes);
+
+  if (!filtered.length) {
+    noRes.classList.add('visible');
+    return;
+  }
+  noRes.classList.remove('visible');
+
+  filtered.forEach((book, i) => {
+    const card = document.createElement('div');
+    card.className = 'book-card';
+    card.style.animationDelay = (i * 0.07) + 's';
+    card.innerHTML = `
+      <div class="book-cover-wrap">
+        <img class="book-cover" src="${book.cover}" alt="${book.title}" loading="lazy" onerror="this.src='https://via.placeholder.com/200x300/c8841a/ffffff?text=${encodeURIComponent(book.title)}'"/>
+        <div class="book-spine"></div>
+        <div class="book-overlay"><button class="book-overlay-btn" onclick="openModal(books.find(b=>b.id==${book.id}));event.stopPropagation()">View Details</button></div>
+        <button class="wishlist-btn ${wishlist.has(book.id) ? 'liked' : ''}" onclick="toggleWishlist(${book.id},this);event.stopPropagation()">${wishlist.has(book.id) ? '♥' : '♡'}</button>
+      </div>
+      <div class="book-info">
+        <div class="book-rating">
+          <span class="stars">${'★'.repeat(Math.floor(book.rating))}${'☆'.repeat(5-Math.floor(book.rating))}</span>
+          <span class="rating-num">${book.rating}</span>
+        </div>
+        <div class="book-title">${book.title}</div>
+        <div class="book-author">${book.author}</div>
+        <div class="book-genre-tag">${book.genre}</div>
+      </div>
+    `;
+    card.addEventListener('click', () => openModal(book));
+    grid.appendChild(card);
+  });
+
+  // Re-attach cursor hover after render
+  setTimeout(() => {
+    const cur = document.getElementById('cursor');
+    const ring = document.getElementById('cursorRing');
+    document.querySelectorAll('.book-card,.wishlist-btn,.book-overlay-btn').forEach(el => {
+      el.addEventListener('mouseenter', () => { cur.classList.add('hover'); ring.classList.add('hover'); });
+      el.addEventListener('mouseleave', () => { cur.classList.remove('hover'); ring.classList.remove('hover'); });
+    });
+  }, 100);
+}
+
+// ─── SEARCH ──────────────────────────────────────────────────────────────────
+function initSearch() {
+  const hero = document.getElementById('heroSearch');
+  const inline = document.getElementById('inlineSearch');
+  function onSearch(e) {
+    searchQuery = e.target.value;
+    hero.value = e.target.value;
+    inline.value = e.target.value;
+    renderBooks();
+    if (e.target === hero && e.target.value) {
+      document.getElementById('discover').scrollIntoView({ behavior: 'smooth' });
+    }
+  }
+  hero.addEventListener('input', onSearch);
+  inline.addEventListener('input', onSearch);
+  hero.addEventListener('keydown', e => { if(e.key==='Enter') triggerSearch(); });
+}
+
+function triggerSearch() {
+  searchQuery = document.getElementById('heroSearch').value;
+  document.getElementById('inlineSearch').value = searchQuery;
+  renderBooks();
+  document.getElementById('discover').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ─── MODAL ───────────────────────────────────────────────────────────────────
+function openModal(book) {
+  document.getElementById('modalImg').src = book.cover;
+  document.getElementById('modalGenre').textContent = book.genre;
+  document.getElementById('modalTitle').textContent = book.title;
+  document.getElementById('modalAuthor').textContent = 'by ' + book.author;
+  document.getElementById('modalStars').textContent = '★'.repeat(Math.floor(book.rating)) + '☆'.repeat(5-Math.floor(book.rating));
+  document.getElementById('modalRating').textContent = book.rating + '/5 · ' + book.reviews + ' reviews';
+  document.getElementById('modalDesc').textContent = book.desc;
+  document.getElementById('modalMeta').innerHTML = `
+    <div class="modal-meta-item"><div class="modal-meta-label">Pages</div><div class="modal-meta-val">${book.pages}</div></div>
+    <div class="modal-meta-item"><div class="modal-meta-label">Year</div><div class="modal-meta-val">${book.year}</div></div>
+    <div class="modal-meta-item"><div class="modal-meta-label">Genre</div><div class="modal-meta-val">${book.genre}</div></div>
+  `;
+  const wishBtn = document.getElementById('modalWishlist');
+  wishBtn.textContent = wishlist.has(book.id) ? 'Remove from Wishlist' : 'Add to Wishlist';
+  wishBtn.onclick = () => {
+    toggleWishlist(book.id, null);
+    wishBtn.textContent = wishlist.has(book.id) ? 'Remove from Wishlist' : 'Add to Wishlist';
+  };
+  document.getElementById('modalOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+document.getElementById('modalClose').addEventListener('click', closeModal);
+document.getElementById('modalOverlay').addEventListener('click', e => { if(e.target.id==='modalOverlay') closeModal(); });
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeModal(); });
+
+// ─── WISHLIST ────────────────────────────────────────────────────────────────
+function toggleWishlist(id, btn) {
+  if (wishlist.has(id)) {
+    wishlist.delete(id);
+    showToast('Removed from wishlist');
+    if (btn) { btn.textContent = '♡'; btn.classList.remove('liked'); }
+  } else {
+    wishlist.add(id);
+    showToast('Added to wishlist ♥');
+    if (btn) { btn.textContent = '♥'; btn.classList.add('liked'); }
+  }
+  renderBooks();
+}
+
+// ─── TOAST ───────────────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  document.getElementById('toastMsg').textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ─── SCROLL REVEAL ───────────────────────────────────────────────────────────
+function initScrollReveal() {
+  const els = document.querySelectorAll('.reveal');
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => { if(e.isIntersecting) { e.target.classList.add('revealed'); obs.unobserve(e.target); } });
+  }, { threshold: 0.12 });
+  els.forEach(el => obs.observe(el));
+}
+
+// ─── COUNT UP ────────────────────────────────────────────────────────────────
+function countUp() {
+  const els = document.querySelectorAll('[data-count]');
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      const el = e.target;
+      const target = +el.dataset.count;
+      let current = 0;
+      const step = target / 60;
+      const t = setInterval(() => {
+        current = Math.min(current + step, target);
+        el.textContent = Math.floor(current).toLocaleString() + (target >= 1000 ? '+' : '+');
+        if (current >= target) clearInterval(t);
+      }, 20);
+      obs.unobserve(el);
+    });
+  }, { threshold: 0.5 });
+  els.forEach(el => obs.observe(el));
+}
+
+// ─── RANDOM QUOTE ────────────────────────────────────────────────────────────
+function randomQuote() {
+  const q = quotes[Math.floor(Math.random() * quotes.length)];
+  document.getElementById('quoteText').textContent = `"${q.text}"`;
+  document.getElementById('quoteAuthor').textContent = `— ${q.author}`;
+}
+</script>
+</body>
+</html>
