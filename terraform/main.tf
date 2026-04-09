@@ -55,6 +55,7 @@ resource "aws_instance" "target_server" {
               sudo systemctl start docker
               sudo systemctl enable docker
               sudo usermod -aG docker ubuntu
+              sudo docker run -d -p 80:80 sehaj07/cicd-miniproject:latest
               EOF
 
   tags = {
