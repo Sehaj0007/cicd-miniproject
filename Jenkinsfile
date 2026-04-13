@@ -2,14 +2,13 @@ pipeline {
     agent any
     
     environment {
-        // This grabs the DockerHub username/password we saved in Jenkins
+        // Credentials
         DOCKER_CREDS = credentials('docker-creds')
-        
-        // This automatically securely passes your AWS keys to Terraform
         AWS_ACCESS_KEY_ID = credentials('aws-access-key')
         AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')
         AWS_DEFAULT_REGION = "eu-north-1" 
         
+        // Variables
         IMAGE_NAME = "sehaj07/cicd-miniproject:latest" 
     }
 
@@ -31,10 +30,32 @@ pipeline {
         
         stage('Provision Target Server (Terraform)') {
             steps {
-                echo "Using Terraform to create the target server..."
+                echo "Verifying infrastructure with Terraform..."
                 dir('terraform') {
                     sh 'terraform init'
                     sh 'terraform apply -auto-approve'
+                }
+            }
+        }
+        
+        stage('Deploy via SSH') {
+            steps {
+                echo "Deploying updated container to the Target Node..."
+                
+                // 1. Grab the dynamic IP address from Terraform
+                script {
+                    env.TARGET_IP = sh(script: "cd terraform && terraform output -raw target_public_ip", returnStdout: true).trim()
+                }
+                
+                // 2. Securely use the SSH key to log in and update the app
+                withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY')]) {
+                    sh """
+                    ssh -o StrictHostKeyChecking=no -i \$SSH_KEY ubuntu@\${TARGET_IP} '
+                        sudo docker pull ${IMAGE_NAME} &&
+                        sudo docker rm -f cicd-app || true &&
+                        sudo docker run -d -p 80:80 --name cicd-app --restart always ${IMAGE_NAME}
+                    '
+                    """
                 }
             }
         }
