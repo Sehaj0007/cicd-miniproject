@@ -10,7 +10,6 @@ pipeline {
         AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')
         AWS_DEFAULT_REGION = "eu-north-1" 
         
-        // Change this to your actual DockerHub username!
         IMAGE_NAME = "sehaj07/cicd-miniproject:latest" 
     }
 

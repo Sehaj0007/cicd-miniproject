@@ -42,7 +42,6 @@ resource "aws_instance" "target_server" {
   ami                    = data.aws_ami.ubuntu.id
   instance_type          = "t3.micro"
   
-  # IMPORTANT: Change this to the exact name of your existing key pair (without the .pem extension)
   key_name               = "myKey" 
   
   vpc_security_group_ids = [aws_security_group.target_sg.id]
